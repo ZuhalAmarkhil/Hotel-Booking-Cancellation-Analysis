@@ -1,0 +1,588 @@
+---
+title: "Analysis of Hotel Bookings Cancellation"
+
+output:
+  pdf_document:
+    toc: true
+---
+
+## Introduction
+
+This document presents an analysis of a real-life hotel stay dataset using R Markdown to identify factors influencing booking cancellations. By exploring this dataset, we aim to uncover insights that can help inform strategies for better managing hotel bookings and enhancing guest satisfaction.
+
+
+## Step1: Installing and loading necessary packages
+
+```{r}
+
+install.packages("caret") 
+install.packages("corrplot") 
+
+library(tidyverse)  # For data manipulation 
+
+library(ggplot2)    # For data visualization
+
+library(corrplot)   # For visualizing correlation matrices
+
+library(RColorBrewer) # For defining a custom color palette 
+
+library(caret)      # For Machine Learning 
+
+library(rpart)  # For Machine Learning 
+
+```
+
+## Step2: Loading the dataset
+
+```{r}
+
+# Load the hotel bookings data 
+hotel_data <- read.csv("hotel_bookings.csv")
+
+# path to the dataset is: https://intro-datascience.s3.us-east-2.amazonaws.com/Resort01.csv
+
+```
+
+
+## Step3: Exploring and manipulating the dataset
+
+
+```{r}
+
+# Show the structure of the dataset
+str(hotel_data)
+
+```
+
+```{r}
+
+# Show summary statistics for numerical variables
+summary(hotel_data)
+
+```
+
+```{r}
+
+# View the first few rows of the data
+head(hotel_data)
+
+```
+
+```{r}
+
+# View the last few rows of the data
+tail(hotel_data)
+
+```
+
+```{r}
+
+# Check for number of unique values in each column 
+sapply(hotel_data, function(x) length(unique(x)))
+
+```
+
+
+**Note:** Checking for unique values is particularly useful for understanding the diversity and distribution of categorical variables. As we can see from the result, the 'Meal' variable has 5 distinct values, 'MarketSegment' has 6 distinct values, and 'DepositType' has 3 distinct values.
+
+
+
+```{r}
+
+# Check for missing values in each column (variable) of the dataset.
+colSums(is.na(hotel_data))
+
+```
+
+
+From the output, we can see there is no missing value in the entire dataset. 
+
+
+
+**Display frequencies of selected categorical variables in the upcoming code batch.**
+
+
+```{r}
+
+# Calculate frequencies of Country categories
+country_freq <- table(hotel_data$Country)
+
+# Sort the frequencies in descending order
+sorted_country_freq <- sort(country_freq, decreasing = TRUE)
+
+# Display the sorted frequencies and corresponding country names
+print(sorted_country_freq)
+
+```
+
+
+**From the result of frequencies of Country, we observe:**
+- The top 6 countries from which most guests come are Portugal (PRT), United Kingdom (GBR), Spain (ESP), Ireland (IRL), France (FRA), and Germany (DEU).
+- There are 464 entries labeled as NULL. To enhance clarity, in the next code block, I will replace NULL entries with 'Unknown'.
+
+
+
+```{r}
+
+# Replace NULL values with "Unknown" in the Country column
+hotel_data$Country <- gsub("NULL", "Unknown", hotel_data$Country)
+
+# Check the number of entries with "Unknown" in the Country column
+print(sum(hotel_data$Country == "Unknown"))
+
+```
+
+
+```{r}
+
+# Calculate frequencies of MarketSegment categories
+market_segment_freq <- table(hotel_data$MarketSegment)
+
+print(market_segment_freq)
+
+```
+
+The analysis indicates that the most prevalent market segment is Online Travel Agents (Online TA), followed by Offline TA and Direct.
+
+
+
+
+**Histogram of Canceled Bookings by Market Segments**
+
+
+```{r}
+
+# Histogram of Canceled booking
+
+# Calculate MarketSegment frequencies for canceled bookings
+canceled_market_segment_freq <- table(hotel_data$MarketSegment[hotel_data$IsCanceled == 1])
+
+# Sort MarketSegment frequencies in descending order
+sorted_canceled_market_segment_freq <- sort(canceled_market_segment_freq, decreasing = TRUE)
+
+# Generate a smooth color palette
+color_palette_canceled <- colorRampPalette(c("Skyblue", "Purple"))(length(sorted_canceled_market_segment_freq))
+
+# Set up the plotting environment to display multiple plots in one device
+par(mfrow = c(1, 2))  # 1 row and 2 columns for side-by-side plots
+
+# Plotting a bar chart of MarketSegment frequencies (sorted)
+barplot(
+  sorted_canceled_market_segment_freq,
+  main = "Canceled Bookings \n by Market Segment",
+  xlab = "",
+  ylab = "Frequency",
+  ylim = c(0, max(sorted_canceled_market_segment_freq) * 1.2),
+  col = color_palette_canceled,
+  names.arg = names(sorted_canceled_market_segment_freq),
+  cex.names = 0.8,
+  las = 2,  # Rotate x-axis labels vertically
+  cex.main = 1,  # Adjust font size of main title
+  cex.lab = 0.8  # Adjust font size of y-axis label
+)
+
+
+# Histogram of Not Canceled data
+
+# Calculate MarketSegment frequencies for non-canceled bookings
+not_canceled_market_segment_freq <- table(hotel_data$MarketSegment[hotel_data$IsCanceled == 0])
+
+# Sort MarketSegment frequencies in descending order
+sorted_not_canceled_market_segment_freq <- sort(not_canceled_market_segment_freq, decreasing = TRUE)
+
+# Generate a smooth color palette
+color_palette_not_canceled <- colorRampPalette(c("Skyblue", "Purple"))(length(sorted_not_canceled_market_segment_freq))
+
+# Plotting a bar chart of MarketSegment frequencies (sorted)
+barplot(
+  sorted_not_canceled_market_segment_freq,
+  main = "Not Canceled Bookings\n by Market Segment",
+  xlab = "",
+  ylab = "Frequency",
+  ylim = c(0, max(sorted_not_canceled_market_segment_freq) * 1.2),
+  col = color_palette_not_canceled,
+  names.arg = names(sorted_not_canceled_market_segment_freq),
+  cex.names = 0.8,
+  las = 2,  # Rotate x-axis labels vertically
+  cex.main = 1,  # Adjust font size of main title
+  cex.lab = 0.8  # Adjust font size of y-axis label
+)
+
+# Reset plot parameters to default after plotting
+par(mfrow = c(1, 1))
+
+```
+
+The graph illustrates that the Online TA segment exhibits the highest cancellation rate, followed by the Group segment.
+
+
+
+
+**Distribution of Customer Types**
+
+
+```{r}
+
+# Calculate frequencies of CustomerType categories
+customer_type_freq <- table(hotel_data$CustomerType)
+
+# Calculate percentages for each category
+customer_type_percent <- prop.table(customer_type_freq) * 100
+
+# Round percentages to two decimal places
+customer_type_percent <- round(customer_type_percent, 2)
+
+# Determine the number of categories
+num_categories <- length(customer_type_freq)
+
+# Plotting a pie chart of DepositType percentages with a larger size
+pie(customer_type_freq,
+    main = "Distribution of Customer Types",
+    labels = paste(names(customer_type_freq), ":", customer_type_percent, "%", sep = ""),
+    col = rainbow(num_categories),  # Using a rainbow color palette
+    cex = 1.2,  # Adjust label size
+    radius = 1  # Increase the size of the pie chart
+   )
+
+```
+
+
+```{r}
+
+# Calculate frequencies of DepositType categories
+deposit_type_freq <- table(hotel_data$DepositType)
+
+print(deposit_type_freq)
+
+```
+
+
+```{r}
+
+# Calculate DepositType frequencies for canceled bookings
+canceled_deposit_type_freq <- table(hotel_data$DepositType[hotel_data$IsCanceled == 1])
+
+# Calculate DepositType frequencies for non-canceled bookings
+not_canceled_deposit_type_freq <- table(hotel_data$DepositType[hotel_data$IsCanceled == 0])
+
+# Combine deposit type frequencies with labels
+combined_data <- data.frame(DepositType = names(canceled_deposit_type_freq),
+                             Canceled = as.numeric(canceled_deposit_type_freq),
+                             NotCanceled = as.numeric(not_canceled_deposit_type_freq))
+
+# Reshape data for plotting
+combined_data_long <- tidyr::pivot_longer(combined_data, cols = c("Canceled", "NotCanceled"),
+                                          names_to = "BookingStatus", values_to = "Frequency")
+
+# Plotting using ggplot2
+ggplot(combined_data_long, aes(x = DepositType, y = Frequency, fill = BookingStatus)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  labs(title = "Deposit Types: Canceled vs. Not Canceled Bookings",
+       x = "Deposit Type", y = "Frequency") +
+  theme_minimal()
+
+```
+
+
+```{r}
+
+# Calculate frequencies of Meal
+meal_type_freq <- table(hotel_data$Meal)
+
+# Display Meal types with their frequencies
+print(meal_type_freq)
+
+```
+
+**Note:**
+- According to the data dictionary, 'SC' and 'Undefined' both translate to "no meal package". 
+- To standardize meal types, in the next code block, I will change 'Undefined' to 'SC'.
+
+
+
+```{r}
+
+# Clean up leading and trailing spaces in the Meal column
+hotel_data$Meal <- trimws(hotel_data$Meal)
+
+# Replace "Undefined" with "SC" in the Meal column
+hotel_data$Meal[hotel_data$Meal == "Undefined"] <- "SC"
+
+```
+
+
+```{r}
+
+# Calculate frequencies of Meal
+meal_type_freq <- table(hotel_data$Meal)
+
+# Sort MealType frequencies in descending order
+sorted_meal_type_freq <- sort(meal_type_freq, decreasing = TRUE)
+
+# Generate a smooth color palette by defining the start_color to end_color and the number of colors needed
+col_palette <- colorRampPalette(c("Skyblue", "Purple"))(4)
+
+# Plotting a bar chart of MealTypes frequencies (sorted)
+barplot(sorted_meal_type_freq, main = "Distribution of Meal Types", 
+        xlab = "Meal Type", 
+        ylab = "Frequency", 
+        ylim = c(0, max(sorted_meal_type_freq) * 1.2),  # Adjust ylim for better visualization
+        col = col_palette, 
+        names.arg = names(sorted_meal_type_freq), cex.names = 1)
+
+
+# Define meal types and their descriptions based on the provided information
+meal_types <- c("BB", "HB", "FB", "SC")
+meal_descriptions <- c("Bed & Breakfast", "Half board (breakfast and one other meal – usually dinner)", 
+                       "Full board (breakfast, lunch, and dinner)", "No meal package")
+
+# Create a custom legend with meal type descriptions
+legend("topright", 
+       legend = paste(meal_types, ": ", meal_descriptions, sep = ""),
+       fill = col_palette,
+       bty = "n",  # No box around legend
+       title = "Meal Types",  # Legend title
+       cex = 0.72)  # Adjust legend label size
+
+```
+
+
+## Step4: Uncovering Patterns and Relationships between variables
+
+
+```{r}
+
+# Plotting a box plot of LeadTime by MarketSegment
+boxplot(LeadTime ~ MarketSegment, data = hotel_data,
+        main = "Lead Time by Market Segment",
+        xlab = "Market Segment",
+        ylab = "Lead Time (Days)",
+        col = "Skyblue",
+        las = 2,  # Rotate x-axis labels vertically
+        cex.axis = 0.8)  # Adjust axis label size
+
+```
+
+
+**Analysis**
+- The "Groups" market segment shows the longest lead time, indicating that bookings in this segment typically require a longer advance notice before the stay date.
+- In contrast, the "Complementary" and "Corporate" market segments exhibit the shortest lead times, suggesting a more immediate or last-minute nature of bookings in these segments.
+
+
+
+
+
+**Cancellation Rate by Lead Time**
+
+
+```{r}
+
+# Define lead time intervals (in days)
+lead_time_intervals <- cut(hotel_data$LeadTime, breaks = c(0, 7, 14, 30, Inf),
+                           labels = c("0-7 days", "8-14 days", "15-30 days", "Over 30 days"))
+
+# Calculate cancellation rate by lead time interval
+cancellation_rate_by_lead_time <- tapply(hotel_data$IsCanceled, lead_time_intervals, function(x) mean(x) * 100)
+
+# Plotting a bar chart of cancellation rates by lead time
+barplot(cancellation_rate_by_lead_time,
+        main = "Cancellation Rate by Lead Time",
+        xlab = "Lead Time Interval",
+        ylab = "Cancellation Rate (%)",
+        ylim = c(0, 100),  # Set y-axis limit from 0 to 100%
+        col = col_palette,
+        cex.names = 1,  # Adjust label size
+        ) 
+
+```
+
+
+The graph illustrates that longer lead times correlate with higher cancellation rates.
+
+
+
+**Correlation Matrix**
+- A correlation matrix helps identify which variables are positively, negatively, or not significantly correlated with each other.
+
+
+```{r}
+
+# Select relevant numeric variables and calculate correlation matrix
+correlation_matrix <- hotel_data %>%
+  select(LeadTime,StaysInWeekendNights, StaysInWeekNights, Adults, Children, Babies, IsCanceled) %>%
+  cor()
+
+# Print the correlation matrix
+print(correlation_matrix)
+
+```
+
+
+
+**Based on the correlation matrix:**
+
+- There is a positive correlation between LeadTime and StaysInWeekendNights (0.33) as well as StaysInWeekNights (0.39). This suggests that longer lead times tend to be associated with longer weekend and weekday stays.
+- StaysInWeekendNights and StaysInWeekNights exhibit a strong positive correlation (0.72), indicating that guests who stay longer on weekends also tend to stay longer on weekdays.
+- There is a mild positive correlation between Adults and IsCanceled (0.08), suggesting a slight association between the number of adults in bookings and the likelihood of cancellation.
+- Similarly, Children and IsCanceled (0.08) show a mild positive correlation, indicating a modest relationship between the presence of children in bookings and cancellation likelihood.
+- The correlations involving Babies and IsCanceled (-0.02) are negligible, suggesting minimal impact of infants (babies) on booking cancellations.
+
+
+
+```{r}
+
+# Select numeric variables for correlation analysis
+numeric_vars <- hotel_data[, sapply(hotel_data, is.numeric)]
+
+# Calculate correlation matrix
+correlation_matrix <- cor(numeric_vars)
+
+# Visualize correlation matrix with customized labels
+corrplot(correlation_matrix, method = "color",  type = "lower",
+         tl.col = "black",   # Set label color to black
+         tl.cex = 0.72,       # Set label size (smaller than default)
+         title = "Correlation Matrix of Numeric Variables", 
+         mar = c(0, 0,1, 0)  # Adjust margin (bottom margin increased to move title closer)
+)
+
+```
+
+
+
+**Contingency table for Meal type**
+
+A contingency table is used to display the frequency distribution of two categorical variables and examine the relationship between them. In this case, the contingency table explores the relationship between meal type (BB, FB, HB, SC) and booking cancellation status (0 for not cancelled, 1 for cancelled).
+
+
+
+```{r}
+
+# Create contingency table for Meal type vs. IsCanceled
+meal_cancel_table <- table(hotel_data$Meal, hotel_data$IsCanceled)
+
+# Display the contingency table
+print(meal_cancel_table)
+
+# Calculate percentage of cancellations within each category 
+meal_cancel_table_prop <- prop.table(meal_cancel_table, margin = 1) * 100
+
+# Round percentages to two decimal places
+meal_cancel_table_prop_rounded <- round(meal_cancel_table_prop, 2)
+
+# Print the rounded contingency table percentages
+print(meal_cancel_table_prop_rounded)
+
+```
+
+**Analysis**
+
+Based on the contingency table, it's evident that Full Board (FB) exhibits a high cancellation proportion of 58.75%, indicating that a significant portion of bookings for this meal type are cancelled. Given the widespread popularity of FB bookings, this high cancellation rate translates into a substantial number of cancellations due to the large volume of bookings.
+
+To assess whether there is a significant association between meal types and booking cancellations (both categorical variables), I will conduct a Chi-Squared Test in the next code.
+
+
+
+
+**Chi-Squared Test**
+
+```{r}
+
+# Perform chi-squared test
+chi_squared_test <- chisq.test(meal_cancel_table)
+print(chi_squared_test)
+
+```
+
+
+**Analysis**
+
+The chi-squared test results reveal a strong and statistically significant relationship between meal type and booking cancellation:
+
+- The very low p-value (< 2.2e-16) indicates a highly significant association between meal type and booking cancellation status. This suggests that the observed differences in cancellation rates across meal types are unlikely to be random and are likely influenced by the meal type chosen by guests.
+- The large value of the Chi-squared statistic (475.35) further supports this evidence of association. Higher values of the test statistic indicate stronger evidence against the null hypothesis of independence, reinforcing the conclusion that meal type plays a significant role in predicting booking cancellations.
+
+
+
+
+
+## Step5: Predictive Modeling 
+
+To predict cancellation, a binary outcome, I will utilize logistic regression and decision trees. This approach will allow me to compare their respective accuracy rates. Before proceeding with modeling, it's essential to split the dataset into training and testing sets.
+
+
+
+```{r}
+
+# Split data into training and test sets (70% train, 30% test)
+
+set.seed(111) # Set seed for reproducibility
+
+train_indices <- sample(1:nrow(hotel_data), 0.7 * nrow(hotel_data))
+train_data <- hotel_data[train_indices, ]
+test_data <- hotel_data[-train_indices, ]
+
+```
+
+
+
+
+**Logistic Regression**
+
+
+```{r}
+
+# Define and train the logistic regression model
+log_model <- glm(IsCanceled ~ LeadTime + MarketSegment + CustomerType + DepositType + PreviousBookingsNotCanceled,
+                 data = train_data,
+                 family = "binomial")
+
+# Evaluate the model using the test set
+predicted_probs <- predict(log_model, newdata = test_data, type = "response")
+predicted_labels <- ifelse(predicted_probs > 0.5, 1, 0)
+
+# Evaluate model performance
+confusion_matrix <- table(test_data$IsCanceled, predicted_labels)
+accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+
+# Display model performance metrics
+print(confusion_matrix)
+print(paste("Accuracy:", round(accuracy, 4)))
+
+```
+
+
+
+**Logistic Regression Model Result**
+
+Accuracy: 77.62%
+
+The logistic regression model achieved an accuracy of 77.62%, indicating its effectiveness in predicting booking cancellations. Despite strong performance in identifying non-canceled bookings (True Negatives = 8451), there were misclassifications, including false positives (347) and false negatives (2343). Experimentation with feature modifications did not yield accuracy improvements. Next, I will explore a decision tree model to capture nonlinear relationships and feature importance.
+
+
+
+
+
+**Decision Tree Model**
+
+```{r}
+
+# Train the decision tree model using the rpart function
+tree_model <- rpart(IsCanceled ~ LeadTime + MarketSegment + CustomerType + DepositType + Adults +Babies 
+                    + PreviousCancellations + BookingChanges + RequiredCarParkingSpaces + 
+                    PreviousBookingsNotCanceled + TotalOfSpecialRequests
+                    , data = train_data, method = "class")
+
+# Print a summary of the decision tree model
+summary(tree_model)
+
+```
+
+
+
+**Decision Tree Model Result**
+
+- The decision tree model highlights several key predictors for booking cancellations. 
+- The most influential features include DepositType, LeadTime, MarketSegment, TotalOfSpecialRequests, RequiredCarParkingSpaces, PreviousCancellations, and CustomerType, emphasizing their significant impact on predicting cancellations. 
+- In contrast, features such as Adults, PreviousBookingsNotCanceled, and BookingChanges show relatively lower importance in this predictive model.
+
+                          
