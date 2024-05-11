@@ -1,4 +1,4 @@
-## Hotel Bookings Cancelation Data Analysis ##
+## Hotel Booking Cancelation Data Analysis ##
 
 ### Description: ###
 This project analyzes a real-life hotel stay dataset using the R programming language. Each row in the dataset represents a hotel booking, and the objective was to identify factors influencing booking cancellations. Through this analysis, I aimed to develop predictive models that can forecast booking cancellations and provide insights to optimize hotel booking management and enhance guest satisfaction.
