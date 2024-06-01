@@ -12,13 +12,6 @@ This project analyzes a real-life hotel stay dataset using the R programming lan
 - **rpart:** Used for implementing decision tree-based machine learning models.
 
 ### Project Structure: ###
-Hotel_Bookings_Cancelation_Analysis.Rmd: Contains all the code for data analysis and modeling.
-README.md: Provides comprehensive documentation, offering an overview of the project and its components.
-Plots and Charts/: Directory containing visualizations generated during the analysis for quick data interpretation.
-hotel_bookings.csv: Dataset containing real-life hotel bookings information. Source link: Hotel Bookings Dataset
-data_dictionary.xlsx: Information about the dataset fields and their descriptions.
-Hotel_BookingsCancelationAnalysis.pdf: PDF file containing code, comments, and visualizations generated during the analysis for easy reference.
-
 - **Hotel_Bookings_Cancelation_Analysis.Rmd:** Contains all the code for data analysis and modeling.
 - **README.md:** Provides comprehensive documentation, offering an overview of the project and its components.
 - **Plots and Charts/:** Directory containing visualizations generated during the analysis for quick data interpretation.
